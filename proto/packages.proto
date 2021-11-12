@@ -1,0 +1,15 @@
+syntax = "proto3";
+option optimize_for = SPEED;
+
+service PackageService {
+    rpc GetPackage (Empty) returns (Package) {}
+}
+
+message Empty {}
+
+message Package {
+    string name = 1;
+    string version = 2;
+    string license = 3;
+    string repository = 4;
+}
