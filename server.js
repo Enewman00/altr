@@ -13,20 +13,41 @@ var packageDefinition = protoLoader.loadSync(
      enums: String,
      defaults: true,
      oneofs: true
-    });
-//var routeguide = grpc.loadPackageDefinition(packageDefinition).routeguide;
+});
 var packageguide = grpc.loadPackageDefinition(packageDefinition);
 var package_return;
 
-/**
- * Get a package object at the given empty.
- * @param {empty}  The empty to check
- * @return {package} The feature object
- */
- function checkPackage(empty) {
-    return package_return;
-  }
+let ipRequests = new Object();
 
+/**
+ * checks if the rate limit of 3 requests per 30 seconds is exceeded
+ * @param {ip} ip address of the client
+ */
+exports.isUnderLimit = function(ip)
+{
+    if (ipRequests.hasOwnProperty(ip) && ipRequests[ip].length >= 3)
+    {
+        //ipRequests[ip].push(Date.now());
+        let arrayLength = ipRequests[ip].length;
+        let timeDiff = Date.now() - ipRequests[ip][arrayLength - 3];
+        if ((timeDiff / 1000) >= 30)
+        {
+            ipRequests[ip].push(Date.now());
+            return true;
+        }
+        return false;
+    }
+    else if (ipRequests.hasOwnProperty(ip) && ipRequests[ip].length < 3)
+    {
+        ipRequests[ip].push(Date.now());
+        return true;
+    }
+    else
+    {
+        ipRequests[ip] = [Date.now()];
+        return true;
+    }
+}
 
 /**
  * getServer request handler. Gets an empty request, and responds with a
@@ -41,7 +62,15 @@ function getPackage(call, callback)
      the gRPC service is expected to reject the request. If the limit is not exceeded,
       the gRPC service is expected to successfully service the request.  
     */
-    callback(null, package_return);
+
+    if (exports.isUnderLimit(call.getPeer().split(':')[0]))
+    {
+        callback(null, package_return);
+    }
+    else
+    {
+        callback(new Error("Exceeded request limit of 3 requests per 30 seconds"), null);
+    }
 }
 
 
@@ -55,11 +84,10 @@ function getPackage(call, callback)
 function getServer() {
     var server = new grpc.Server();
     server.addService(packageguide.PackageService.service, {
-      getPackage: getPackage
+        getPackage: getPackage
     });
     return server;
 }
-
 
 
 if (require.main === module) {
@@ -76,6 +104,7 @@ if (require.main === module) {
         });
     });
 }
+
 
 
 
